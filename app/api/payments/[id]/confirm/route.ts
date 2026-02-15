@@ -4,7 +4,7 @@ import { getSupabaseServerClient, requireAuthenticatedUser } from "@/lib/supabas
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const form = await req.formData();
   const returnTo = String(form.get("returnTo") ?? "").trim();
-  const safeReturn = returnTo.startsWith("/") ? returnTo : "/fiado";
+  const safeReturn = returnTo.startsWith("/") ? returnTo : "/operacao";
   const redirectUrl = new URL(safeReturn, req.url);
   const paymentId = params.id;
 

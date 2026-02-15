@@ -10,7 +10,7 @@ type ProductRow = {
 export async function POST(req: Request) {
   const form = await req.formData();
   const returnTo = String(form.get("returnTo") ?? "").trim();
-  const safeReturn = returnTo.startsWith("/") ? returnTo : "/fiado";
+  const safeReturn = returnTo.startsWith("/") ? returnTo : "/operacao";
   const redirectUrl = new URL(safeReturn, req.url);
 
   const clientId = String(form.get("clientId") ?? "").trim();

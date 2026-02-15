@@ -192,7 +192,7 @@ export function SaleCreateForm({
                 <option value="DINHEIRO">Dinheiro</option>
                 <option value="CARTAO">CARTAO</option>
                 <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="MES_SEGUINTE">Fiado</option>
+                <option value="MES_SEGUINTE">Fiado (pagamento a prazo)</option>
               </select>
             </label>
 

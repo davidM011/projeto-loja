@@ -101,7 +101,7 @@ export default async function DashboardsPage() {
 
       <div className="grid grid-3">
         <article className="card glass">
-          <h2>Fiados e alertas</h2>
+          <h2>Pagamentos a prazo e alertas</h2>
           <p>Pendentes/Abertos: R$ {dashboard.openAmount.toFixed(2)}</p>
           <p>Atrasados: {overdue.length}</p>
           <p>A vencer (proximos dias): {dueSoon.length}</p>
@@ -130,9 +130,9 @@ export default async function DashboardsPage() {
           <h2>Relatorios</h2>
           <div className="grid" style={{ gap: "0.45rem" }}>
             <a className="btn" href="/api/reports/sales">Vendas (CSV)</a>
-            <a className="btn btn-secondary" href="/api/reports/payments">Fiados/Pagamentos (CSV)</a>
+            <a className="btn btn-secondary" href="/api/reports/payments">Pagamentos (CSV)</a>
             <a className="btn btn-secondary" href="/reports/sales-print" target="_blank" rel="noreferrer">Vendas (PDF)</a>
-            <a className="btn btn-secondary" href="/reports/fiado-print" target="_blank" rel="noreferrer">Fiados (PDF)</a>
+            <a className="btn btn-secondary" href="/reports/prazo-print" target="_blank" rel="noreferrer">Pagamentos a prazo (PDF)</a>
             <a className="btn btn-secondary" href="/reports/stock-print" target="_blank" rel="noreferrer">Estoque (PDF)</a>
           </div>
         </article>

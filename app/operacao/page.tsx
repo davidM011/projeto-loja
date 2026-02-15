@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SaleCreateForm } from "@/components/sale-create-form";
 import { getClientOptions, getClientsData, getProductOptions, getReceivablesData, getSalesData } from "@/lib/data";
 
@@ -143,7 +142,7 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
       </article>
 
       <article className="card glass">
-        <h2>Pagamentos e fiado</h2>
+        <h2>Pagamentos (incluindo fiado)</h2>
         <form action="/operacao" method="get" className="filter-grid">
           <label className="field-inline">
             Status
@@ -163,7 +162,7 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
               <option value="DINHEIRO">DINHEIRO</option>
               <option value="CARTAO">CARTAO</option>
               <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-              <option value="MES_SEGUINTE">FIADO</option>
+              <option value="MES_SEGUINTE">FIADO (PAGAMENTO A PRAZO)</option>
             </select>
           </label>
 
@@ -238,11 +237,6 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
               )}
             </tbody>
           </table>
-          <div style={{ marginTop: "0.7rem" }}>
-            <Link className="btn btn-secondary" href="/fiado">
-              Abrir central completa de fiado
-            </Link>
-          </div>
         </div>
       </article>
     </section>

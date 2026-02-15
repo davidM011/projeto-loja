@@ -91,6 +91,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                       "-"
                     ) : (
                       <form action={`/api/payments/${item.id}/confirm`} method="post">
+                        <input type="hidden" name="returnTo" value={`/clientes/${detail.id}`} />
                         <button className="btn btn-small" type="submit">
                           Receber agora
                         </button>

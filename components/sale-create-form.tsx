@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type ClientOption = {
   id: string;
@@ -29,8 +29,19 @@ function createRow(seed: number): ItemRow {
   };
 }
 
-export function SaleCreateForm({ clients, products }: { clients: ClientOption[]; products: ProductOption[] }) {
+export function SaleCreateForm({
+  clients,
+  products,
+  returnTo = "/operacao",
+}: {
+  clients: ClientOption[];
+  products: ProductOption[];
+  returnTo?: string;
+}) {
   const [rows, setRows] = useState<ItemRow[]>([createRow(1)]);
+  const [registerPaymentNow, setRegisterPaymentNow] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARTAO" | "MES_SEGUINTE">("PIX");
+  const [paymentAmount, setPaymentAmount] = useState("");
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p.price])), [products]);
 
@@ -53,8 +64,16 @@ export function SaleCreateForm({ clients, products }: { clients: ClientOption[];
     return acc + q * p;
   }, 0);
 
+  useEffect(() => {
+    if (registerPaymentNow) {
+      setPaymentAmount(previewTotal > 0 ? previewTotal.toFixed(2) : "");
+    }
+  }, [previewTotal, registerPaymentNow]);
+
   return (
     <form action="/api/sales" method="post" className="grid" style={{ gap: "0.8rem" }}>
+      <input type="hidden" name="returnTo" value={returnTo} />
+
       <div className="form-grid">
         <label className="field">
           Cliente*
@@ -140,6 +159,56 @@ export function SaleCreateForm({ clients, products }: { clients: ClientOption[];
         </button>
         <strong>Total prev.: R$ {previewTotal.toFixed(2)}</strong>
       </div>
+
+      <article className="card glass" style={{ padding: "0.8rem" }}>
+        <label className="field-inline" style={{ marginBottom: "0.5rem" }}>
+          <span>Registrar pagamento agora</span>
+          <input
+            name="registerPaymentNow"
+            type="checkbox"
+            checked={registerPaymentNow}
+            onChange={(e) => setRegisterPaymentNow(e.target.checked)}
+          />
+        </label>
+
+        {registerPaymentNow && (
+          <div className="form-grid">
+            <label className="field">
+              Metodo*
+              <select name="paymentMethod" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as "PIX" | "CARTAO" | "MES_SEGUINTE")}>
+                <option value="PIX">PIX</option>
+                <option value="CARTAO">CARTAO</option>
+                <option value="MES_SEGUINTE">MES_SEGUINTE</option>
+              </select>
+            </label>
+
+            <label className="field">
+              Valor do pagamento*
+              <input name="paymentAmount" type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} required />
+            </label>
+
+            {paymentMethod === "MES_SEGUINTE" && (
+              <label className="field">
+                Vencimento
+                <input name="paymentDueDate" type="date" />
+              </label>
+            )}
+
+            {paymentMethod === "CARTAO" && (
+              <>
+                <label className="field">
+                  Parcelas
+                  <input name="cardInstallments" type="number" min="1" step="1" />
+                </label>
+                <label className="field">
+                  Bandeira
+                  <input name="cardBrand" />
+                </label>
+              </>
+            )}
+          </div>
+        )}
+      </article>
 
       <button className="btn" type="submit">
         Criar venda

@@ -1,11 +1,17 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getSupabaseServerClient, requireAuthenticatedUser } from "@/lib/supabase-server";
+import type { PaymentMethod } from "@/lib/types";
 
 type SaleItemInput = {
   productId: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+};
+
+type ProductStockRow = {
+  id: string;
+  stock: number | null;
 };
 
 function buildItems(form: FormData): SaleItemInput[] {
@@ -32,15 +38,41 @@ function buildItems(form: FormData): SaleItemInput[] {
   return items;
 }
 
+function getReturnTo(form: FormData): string {
+  const returnTo = String(form.get("returnTo") ?? "").trim();
+  return returnTo.startsWith("/") ? returnTo : "/operacao";
+}
+
+function methodIsValid(method: string): method is PaymentMethod {
+  return method === "PIX" || method === "CARTAO" || method === "MES_SEGUINTE";
+}
+
 export async function POST(req: Request) {
   const form = await req.formData();
+  const redirectPath = getReturnTo(form);
+  const redirectUrl = new URL(redirectPath, req.url);
 
   const clientId = String(form.get("clientId") ?? "").trim();
   const saleDate = String(form.get("saleDate") ?? "").trim();
   const items = buildItems(form);
 
+  const registerPaymentNow = String(form.get("registerPaymentNow") ?? "") === "on";
+  const paymentMethod = String(form.get("paymentMethod") ?? "").trim();
+  const paymentAmount = Number(form.get("paymentAmount") ?? 0);
+  const paymentDueDate = String(form.get("paymentDueDate") ?? "").trim();
+  const cardInstallments = Number(form.get("cardInstallments") ?? 0);
+  const cardBrand = String(form.get("cardBrand") ?? "").trim();
+
   if (!clientId || !saleDate || items.length === 0) {
-    return NextResponse.redirect(new URL("/vendas", req.url), { status: 303 });
+    redirectUrl.searchParams.set("sale", "erro");
+    return NextResponse.redirect(redirectUrl, { status: 303 });
+  }
+
+  if (registerPaymentNow) {
+    if (!methodIsValid(paymentMethod) || !Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      redirectUrl.searchParams.set("sale", "erro");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
   }
 
   const total = Number(items.reduce((acc, item) => acc + item.lineTotal, 0).toFixed(2));
@@ -49,6 +81,32 @@ export async function POST(req: Request) {
     const user = await requireAuthenticatedUser();
     const supabase = getSupabaseServerClient();
 
+    const uniqueProductIds = Array.from(new Set(items.map((item) => item.productId)));
+    const stockResult = await supabase.from("products").select("id, stock").in("id", uniqueProductIds);
+    if (stockResult.error) {
+      redirectUrl.searchParams.set("sale", "erro");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
+
+    const stockMap = new Map<string, number | null>();
+    for (const row of (stockResult.data ?? []) as ProductStockRow[]) {
+      stockMap.set(String(row.id), row.stock == null ? null : Number(row.stock));
+    }
+
+    const qtyByProduct = new Map<string, number>();
+    for (const item of items) {
+      qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) ?? 0) + item.quantity);
+    }
+
+    for (const [productId, qty] of qtyByProduct.entries()) {
+      const currentStock = stockMap.get(productId);
+      if (currentStock == null) continue;
+      if (currentStock < qty) {
+        redirectUrl.searchParams.set("sale", "estoque");
+        return NextResponse.redirect(redirectUrl, { status: 303 });
+      }
+    }
+
     const saleResult = await supabase
       .from("sales")
       .insert({ client_id: clientId, sale_date: saleDate, total, created_by: user.id })
@@ -56,21 +114,55 @@ export async function POST(req: Request) {
       .single();
 
     if (saleResult.error || !saleResult.data?.id) {
-      return NextResponse.redirect(new URL("/vendas", req.url), { status: 303 });
+      redirectUrl.searchParams.set("sale", "erro");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
     }
 
+    const saleId = saleResult.data.id;
     const rows = items.map((item) => ({
-      sale_id: saleResult.data.id,
+      sale_id: saleId,
       product_id: item.productId,
       qty: item.quantity,
       unit_price: item.unitPrice,
       line_total: item.lineTotal,
     }));
 
-    await supabase.from("sale_items").insert(rows);
+    const saleItemsResult = await supabase.from("sale_items").insert(rows);
+    if (saleItemsResult.error) {
+      await supabase.from("sales").delete().eq("id", saleId);
+      redirectUrl.searchParams.set("sale", "erro");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
+
+    if (registerPaymentNow && methodIsValid(paymentMethod)) {
+      const paymentInsert = await supabase.from("payments").insert({
+        sale_id: saleId,
+        method: paymentMethod,
+        amount: paymentAmount,
+        status: paymentMethod === "MES_SEGUINTE" ? "PENDENTE" : "CONFIRMADO",
+        due_date: paymentMethod === "MES_SEGUINTE" ? (paymentDueDate || null) : null,
+        card_installments: paymentMethod === "CARTAO" && cardInstallments > 0 ? cardInstallments : null,
+        card_brand: paymentMethod === "CARTAO" ? (cardBrand || null) : null,
+        created_by: user.id,
+      });
+
+      if (paymentInsert.error) {
+        await supabase.from("sales").delete().eq("id", saleId);
+        redirectUrl.searchParams.set("sale", "erro");
+        return NextResponse.redirect(redirectUrl, { status: 303 });
+      }
+    }
+
+    for (const [productId, qty] of qtyByProduct.entries()) {
+      const currentStock = stockMap.get(productId);
+      if (currentStock == null) continue;
+      const newStock = Math.max(0, currentStock - qty);
+      await supabase.from("products").update({ stock: newStock }).eq("id", productId);
+    }
   } catch {
     return NextResponse.redirect(new URL("/login", req.url), { status: 303 });
   }
 
-  return NextResponse.redirect(new URL("/vendas", req.url), { status: 303 });
+  redirectUrl.searchParams.set("sale", "ok");
+  return NextResponse.redirect(redirectUrl, { status: 303 });
 }

@@ -1,33 +1,41 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { SaleCreateForm } from "@/components/sale-create-form";
-import { FiadoForm } from "@/components/fiado-form";
-import { getClientOptions, getProductOptions, getProductsData, getReceivablesData, getSalesData } from "@/lib/data";
+import { getClientOptions, getFiadoStats, getProductsData, getSalesData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function OperacaoPage() {
-  const [products, sales, receivables, clients, productOptions] = await Promise.all([
+type SearchParams = {
+  sale?: string | string[];
+  productDelete?: string | string[];
+  productCreate?: string | string[];
+};
+
+function pick(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+export default async function OperacaoPage({ searchParams }: { searchParams?: SearchParams }) {
+  const [products, sales, fiadoStats, clients] = await Promise.all([
     getProductsData(),
     getSalesData(),
-    getReceivablesData({ status: "TODOS", period: "TODOS" }),
+    getFiadoStats(),
     getClientOptions(),
-    getProductOptions(),
   ]);
 
   const lowStock = products.filter((p) => p.stock != null && p.stock <= 5);
+  const saleFeedback = pick(searchParams?.sale);
+  const productDelete = pick(searchParams?.productDelete);
+  const productCreate = pick(searchParams?.productCreate);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const nearLimitDate = new Date();
-  nearLimitDate.setDate(nearLimitDate.getDate() + 3);
-  const nearLimit = nearLimitDate.toISOString().slice(0, 10);
-  const overdueCount = receivables.filter((r) => r.status === "ATRASADO").length;
-  const nearDueCount = receivables.filter((r) => (r.status === "PENDENTE" && r.dueDate ? r.dueDate >= today && r.dueDate <= nearLimit : false)).length;
+  const overdueFiado = fiadoStats.overdueCount;
+  const openFiado = fiadoStats.openCount;
 
   return (
     <section className="grid page-gap">
       <div className="section-head">
         <h1>Operacao</h1>
-        <p>Cadastros e rotina diaria em uma unica tela.</p>
+        <p>Cadastro de produto, estoque e venda em um unico fluxo.</p>
       </div>
 
       <div className="grid grid-4">
@@ -45,13 +53,39 @@ export default async function OperacaoPage() {
         </article>
         <article className="card glass compact-card">
           <h3>Fiado em aberto</h3>
-          <strong>{receivables.filter((r) => r.status !== "CONFIRMADO").length}</strong>
+          <strong>{openFiado}</strong>
         </article>
       </div>
 
       <article className="card glass">
         <h2>Cadastro de produto e estoque</h2>
+        {productDelete === "ok" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Produto removido</strong>
+            <span>Registro excluido com sucesso.</span>
+          </div>
+        )}
+        {productCreate === "ok" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Produto salvo</strong>
+            <span>Cadastro concluido com sucesso.</span>
+          </div>
+        )}
+        {productDelete === "vinculado" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Nao foi possivel remover</strong>
+            <span>Esse produto possui vendas vinculadas.</span>
+          </div>
+        )}
+        {productDelete === "erro" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Erro ao remover</strong>
+            <span>Tente novamente em alguns segundos.</span>
+          </div>
+        )}
+
         <form action="/api/products" method="post" className="form-grid">
+          <input type="hidden" name="returnTo" value="/operacao" />
           <label className="field">
             Nome*
             <input name="name" required />
@@ -81,6 +115,7 @@ export default async function OperacaoPage() {
                 <th>Preco</th>
                 <th>Estoque</th>
                 <th>Alerta</th>
+                <th>Acao</th>
               </tr>
             </thead>
             <tbody>
@@ -90,6 +125,14 @@ export default async function OperacaoPage() {
                   <td>R$ {p.price.toFixed(2)}</td>
                   <td>{p.stock ?? "-"}</td>
                   <td>{p.stock != null && p.stock <= 5 ? <span className="badge badge-danger">Baixo</span> : <span className="badge">OK</span>}</td>
+                  <td>
+                    <form action={`/api/products/${p.id}/delete`} method="post">
+                      <input type="hidden" name="returnTo" value="/operacao" />
+                      <button className="btn btn-secondary btn-small" type="submit">
+                        Remover
+                      </button>
+                    </form>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -99,7 +142,26 @@ export default async function OperacaoPage() {
 
       <article className="card glass">
         <h2>Cadastro de venda</h2>
-        <SaleCreateForm clients={clients} products={productOptions} />
+        {saleFeedback === "ok" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Venda criada</strong>
+            <span>Venda registrada com sucesso.</span>
+          </div>
+        )}
+        {saleFeedback === "erro" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Falha ao criar venda</strong>
+            <span>Confira os dados dos itens e pagamento.</span>
+          </div>
+        )}
+        {saleFeedback === "estoque" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Estoque insuficiente</strong>
+            <span>Um ou mais produtos nao possuem saldo para esta venda.</span>
+          </div>
+        )}
+
+        <SaleCreateForm clients={clients} products={products.map((p) => ({ id: p.id, name: p.name, price: p.price }))} returnTo="/operacao" />
 
         <div style={{ marginTop: "0.9rem" }}>
           <table className="table glass">
@@ -128,71 +190,14 @@ export default async function OperacaoPage() {
       </article>
 
       <article className="card glass">
-        <h2>Fichamento no fiado</h2>
-        <p className="muted">Cliente + celular + produto (valor automatico) + data da venda + data de pagamento.</p>
-        <FiadoForm action="/api/fiado" clients={clients} products={productOptions} />
-
-        {(overdueCount > 0 || nearDueCount > 0) && (
-          <div className="alert-strip" style={{ marginTop: "0.9rem" }}>
-            <strong>Avisos</strong>
-            <span>{overdueCount} atrasadas</span>
-            <span>{nearDueCount} perto de vencer (3 dias)</span>
-          </div>
-        )}
-
-        <div style={{ marginTop: "0.9rem" }}>
-          <table className="table glass">
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Venda</th>
-                <th>Vencimento</th>
-                <th>Valor</th>
-                <th>Status</th>
-                <th>Acao</th>
-              </tr>
-            </thead>
-            <tbody>
-              {receivables.slice(0, 12).map((item) => (
-                <tr key={item.id}>
-                  <td>{item.client}</td>
-                  <td>{item.saleCode}</td>
-                  <td>{item.dueDate ?? "-"}</td>
-                  <td>R$ {item.amount.toFixed(2)}</td>
-                  <td>
-                    <span
-                      className={
-                        item.status === "ATRASADO"
-                          ? "badge badge-danger"
-                          : item.status === "CONFIRMADO"
-                            ? "badge badge-ok"
-                            : "badge"
-                      }
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td>
-                    {item.status === "CONFIRMADO" ? (
-                      "-"
-                    ) : (
-                      <form action={`/api/payments/${item.id}/confirm`} method="post">
-                        <button className="btn btn-small" type="submit">
-                          Receber
-                        </button>
-                      </form>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div style={{ marginTop: "0.8rem" }}>
-            <Link href="/contas-receber" className="btn btn-secondary">
-              Abrir central completa de contas a receber
-            </Link>
-          </div>
+        <h2>Atalho para fiado</h2>
+        <p className="muted">Toda gestao de fiado (registro, alertas e recebimento) agora fica em uma tela exclusiva.</p>
+        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+          <Link href="/fiado" className="btn">
+            Abrir central de fiado
+          </Link>
+          <span className="badge">{overdueFiado} atrasadas</span>
+          <span className="badge">{openFiado} em aberto</span>
         </div>
       </article>
     </section>

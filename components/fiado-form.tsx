@@ -18,10 +18,12 @@ export function FiadoForm({
   clients,
   products,
   action,
+  returnTo = "/operacao",
 }: {
   clients: ClientOption[];
   products: ProductOption[];
   action: string;
+  returnTo?: string;
 }) {
   const [clientId, setClientId] = useState("");
   const [productId, setProductId] = useState("");
@@ -38,6 +40,7 @@ export function FiadoForm({
 
   return (
     <form action={action} method="post" className="form-grid">
+      <input type="hidden" name="returnTo" value={returnTo} />
       <label className="field">
         Cliente*
         <select name="clientId" value={clientId} onChange={(e) => setClientId(e.target.value)} required>

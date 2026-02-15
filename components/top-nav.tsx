@@ -1,41 +1,29 @@
-﻿import Link from "next/link";
-import { getAuthenticatedUser } from "@/lib/supabase-server";
+import Link from "next/link";
 
 const links = [
   { href: "/", label: "Dashboard" },
   { href: "/operacao", label: "Operacao" },
+  { href: "/fiado", label: "Fiado" },
+  { href: "/clientes", label: "Clientes" },
   { href: "/relatorios", label: "Relatorios" },
-  { href: "/clientes", label: "Clientes 360" },
 ];
 
-export async function TopNav() {
-  const user = await getAuthenticatedUser();
-  const canNavigate = Boolean(user);
-
+export function TopNav() {
   return (
     <header className="topbar">
       <div className="topbar-inner">
         <strong>Projeto Loja MVP</strong>
         <nav className="nav">
-          {canNavigate
-            ? links.map((item) => (
-                <Link className="nav-link" key={item.href} href={item.href}>
-                  {item.label}
-                </Link>
-              ))
-            : null}
-
-          {canNavigate ? (
-            <form action="/api/auth/logout" method="post">
-              <button className="nav-link nav-btn" type="submit">
-                Sair
-              </button>
-            </form>
-          ) : (
-            <Link className="nav-link" href="/login">
-              Login
+          {links.map((item) => (
+            <Link className="nav-link" key={item.href} href={item.href}>
+              {item.label}
             </Link>
-          )}
+          ))}
+          <form action="/api/auth/logout" method="post">
+            <button className="nav-link nav-btn" type="submit">
+              Sair
+            </button>
+          </form>
         </nav>
       </div>
     </header>

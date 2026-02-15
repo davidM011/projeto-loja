@@ -77,6 +77,11 @@ export interface ClientDetailData {
   openPayments: ReceivableItem[];
 }
 
+export interface FiadoStats {
+  openCount: number;
+  overdueCount: number;
+}
+
 function filterReceivable(item: ReceivableItem, filters: ReceivablesFilters): boolean {
   const status = filters.status ?? "TODOS";
   const method = filters.method ?? "TODOS";
@@ -465,34 +470,64 @@ export async function getReceivablesData(filters: ReceivablesFilters = {}) {
     }));
   } else {
     const supabase = getSupabaseServerClient();
-    const [paymentsResult, salesResult, clientsResult] = await Promise.all([
-      supabase
-        .from("payments")
-        .select("id, sale_id, method, due_date, amount, status")
-        .order("created_at", { ascending: false })
-        .limit(300),
-      supabase.from("sales").select("id, client_id"),
-      supabase.from("clients").select("id, name"),
-    ]);
+    const today = todayIso();
+    const in7 = new Date();
+    in7.setDate(in7.getDate() + 7);
+    const in7Iso = in7.toISOString().slice(0, 10);
 
-    if (paymentsResult.error || salesResult.error || clientsResult.error) {
+    let paymentsQuery = supabase
+      .from("payments")
+      .select("id, sale_id, method, due_date, amount, status")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const status = filters.status ?? "TODOS";
+    const method = filters.method ?? "TODOS";
+    const period = filters.period ?? "TODOS";
+    const clientId = filters.clientId ?? "TODOS";
+
+    if (status !== "TODOS") paymentsQuery = paymentsQuery.eq("status", status);
+    if (method !== "TODOS") paymentsQuery = paymentsQuery.eq("method", method);
+    if (period === "HOJE") paymentsQuery = paymentsQuery.eq("due_date", today);
+    if (period === "PROX_7") paymentsQuery = paymentsQuery.gte("due_date", today).lte("due_date", in7Iso);
+    if (period === "ATRASADAS") paymentsQuery = paymentsQuery.eq("status", "ATRASADO");
+
+    const paymentsResult = await paymentsQuery;
+
+    if (paymentsResult.error) {
       rows = mockReceivables.map((item) => ({
         ...item,
         saleId: item.saleCode,
         clientId: item.client,
       }));
     } else {
+      const paymentRows = paymentsResult.data as Row[];
+      const saleIds = Array.from(new Set(paymentRows.map((item) => asString(item.sale_id)).filter(Boolean)));
+
+      let salesRows: Row[] = [];
+      if (saleIds.length > 0) {
+        const salesResult = await supabase.from("sales").select("id, client_id").in("id", saleIds);
+        if (!salesResult.error) salesRows = salesResult.data as Row[];
+      }
+
       const saleToClient = new Map<string, string>();
-      for (const sale of salesResult.data as Row[]) {
+      for (const sale of salesRows) {
         saleToClient.set(asString(sale.id), asString(sale.client_id));
       }
 
+      const selectedClientIds = Array.from(new Set(salesRows.map((item) => asString(item.client_id)).filter(Boolean)));
+      let clientsRows: Row[] = [];
+      if (selectedClientIds.length > 0) {
+        const clientsResult = await supabase.from("clients").select("id, name").in("id", selectedClientIds);
+        if (!clientsResult.error) clientsRows = clientsResult.data as Row[];
+      }
+
       const clientName = new Map<string, string>();
-      for (const client of clientsResult.data as Row[]) {
+      for (const client of clientsRows) {
         clientName.set(asString(client.id), asString(client.name));
       }
 
-      rows = (paymentsResult.data as Row[]).map((item) => {
+      rows = paymentRows.map((item) => {
         const saleId = asString(item.sale_id);
         const clientId = saleToClient.get(saleId) ?? "";
 
@@ -508,8 +543,42 @@ export async function getReceivablesData(filters: ReceivablesFilters = {}) {
           status: asString(item.status),
         };
       });
+
+      if (clientId !== "TODOS") {
+        rows = rows.filter((item) => item.clientId === clientId);
+      }
     }
   }
 
   return rows.filter((item) => filterReceivable(item, filters));
+}
+
+export async function getFiadoStats(): Promise<FiadoStats> {
+  if (!hasSupabaseEnv()) {
+    return {
+      openCount: mockReceivables.filter((item) => item.method === "MES_SEGUINTE" && item.status !== "CONFIRMADO").length,
+      overdueCount: mockReceivables.filter((item) => item.method === "MES_SEGUINTE" && item.status === "ATRASADO").length,
+    };
+  }
+
+  const supabase = getSupabaseServerClient();
+  const result = await supabase
+    .from("payments")
+    .select("status")
+    .eq("method", "MES_SEGUINTE")
+    .in("status", ["PENDENTE", "ATRASADO", "CONFIRMADO"])
+    .limit(800);
+
+  if (result.error) {
+    return {
+      openCount: 0,
+      overdueCount: 0,
+    };
+  }
+
+  const rows = (result.data as Row[]) ?? [];
+  return {
+    openCount: rows.filter((item) => asString(item.status) !== "CONFIRMADO").length,
+    overdueCount: rows.filter((item) => asString(item.status) === "ATRASADO").length,
+  };
 }

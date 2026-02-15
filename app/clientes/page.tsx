@@ -1,10 +1,20 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { getClientsData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientsPage() {
+type SearchParams = {
+  clientDelete?: string | string[];
+};
+
+function pick(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+export default async function ClientsPage({ searchParams }: { searchParams?: SearchParams }) {
   const clients = await getClientsData();
+  const clientDelete = pick(searchParams?.clientDelete);
 
   return (
     <section className="grid page-gap">
@@ -12,6 +22,25 @@ export default async function ClientsPage() {
         <h1>Clientes</h1>
         <p>Cadastre clientes e acompanhe historico e fiado em um clique.</p>
       </div>
+
+      {clientDelete === "ok" && (
+        <div className="alert-strip">
+          <strong>Cliente removido</strong>
+          <span>Registro excluido com sucesso.</span>
+        </div>
+      )}
+      {clientDelete === "vinculado" && (
+        <div className="alert-strip">
+          <strong>Nao foi possivel remover</strong>
+          <span>Esse cliente possui vendas vinculadas.</span>
+        </div>
+      )}
+      {clientDelete === "erro" && (
+        <div className="alert-strip">
+          <strong>Erro ao remover</strong>
+          <span>Tente novamente em alguns segundos.</span>
+        </div>
+      )}
 
       <article className="card glass">
         <h2>Novo cliente</h2>
@@ -51,10 +80,15 @@ export default async function ClientsPage() {
               <td>{c.whatsapp}</td>
               <td>{c.orders}</td>
               <td>R$ {c.debt.toFixed(2)}</td>
-              <td>
+              <td style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                 <Link className="btn btn-secondary btn-small" href={`/clientes/${c.id}`}>
                   Abrir 360
                 </Link>
+                <form action={`/api/clients/${c.id}/delete`} method="post">
+                  <button className="btn btn-secondary btn-small" type="submit">
+                    Remover
+                  </button>
+                </form>
               </td>
             </tr>
           ))}

@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type Mode = "login" | "signup" | "forgot";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/";
@@ -109,5 +109,13 @@ export default function LoginPage() {
         {message ? <p style={{ color: "#31572c" }}>{message}</p> : null}
       </article>
     </section>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<section className="grid" style={{ maxWidth: 460, margin: "2rem auto" }}><article className="card"><p>Carregando...</p></article></section>}>
+      <LoginContent />
+    </Suspense>
   );
 }

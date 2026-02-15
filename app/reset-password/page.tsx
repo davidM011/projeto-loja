@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -76,5 +76,13 @@ export default function ResetPasswordPage() {
         {message ? <p style={{ color: "#31572c" }}>{message}</p> : null}
       </article>
     </section>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<section className="grid" style={{ maxWidth: 460, margin: "2rem auto" }}><article className="card"><p>Carregando...</p></article></section>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

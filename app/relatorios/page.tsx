@@ -26,11 +26,16 @@ export default async function DashboardsPage() {
   ]);
 
   let topProducts: Array<{ name: string; qty: number }> = [];
+  const responsibleNameByRole = new Map<string, string>([
+    ["USUARIO_1", "Usuario 1"],
+    ["USUARIO_2", "Usuario 2"],
+  ]);
   if (hasSupabaseEnv()) {
     const supabase = getSupabaseServerClient();
-    const [itemsResult, productsResult] = await Promise.all([
+    const [itemsResult, productsResult, profilesResult] = await Promise.all([
       supabase.from("sale_items").select("product_id, qty").limit(1000),
       supabase.from("products").select("id, name"),
+      supabase.from("profiles").select("role, full_name").in("role", ["USUARIO_1", "USUARIO_2"]),
     ]);
 
     if (!itemsResult.error && !productsResult.error) {
@@ -47,6 +52,16 @@ export default async function DashboardsPage() {
         .map(([name, qty]) => ({ name, qty }))
         .sort((a, b) => b.qty - a.qty)
         .slice(0, 5);
+    }
+
+    if (!profilesResult.error) {
+      for (const p of profilesResult.data ?? []) {
+        const role = String(p.role ?? "");
+        const fullName = String(p.full_name ?? "").trim();
+        if (role && fullName) {
+          responsibleNameByRole.set(role, fullName);
+        }
+      }
     }
   }
 
@@ -113,7 +128,10 @@ export default async function DashboardsPage() {
           {Object.keys(byResponsible).length === 0 ? (
             <p className="muted">Sem vendas no periodo.</p>
           ) : (
-            Object.entries(byResponsible).map(([k, v]) => <p key={k}>{k}: R$ {v.toFixed(2)}</p>)
+            Object.entries(byResponsible).map(([k, v]) => {
+              const label = responsibleNameByRole.get(k) ?? (k === "SEM_RESPONSAVEL" ? "Sem responsavel" : k);
+              return <p key={k}>{label}: R$ {v.toFixed(2)}</p>;
+            })
           )}
         </article>
 

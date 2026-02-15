@@ -17,6 +17,9 @@ export function TopNav() {
               {item.label}
             </Link>
           ))}
+          <Link className="nav-link btn-secondary" href="/perfil">
+            Perfil
+          </Link>
           <form action="/api/auth/logout" method="post">
             <button className="nav-link nav-btn" type="submit">
               Sair

@@ -29,6 +29,7 @@ function todayIso() {
 export interface ClientOption {
   id: string;
   name: string;
+  whatsapp?: string;
 }
 
 export interface ProductOption {
@@ -336,19 +337,20 @@ export async function getClientDetailData(clientId: string): Promise<ClientDetai
 
 export async function getClientOptions(): Promise<ClientOption[]> {
   if (!hasSupabaseEnv()) {
-    return mockClients.map((item) => ({ id: item.id, name: item.name }));
+    return mockClients.map((item) => ({ id: item.id, name: item.name, whatsapp: item.whatsapp }));
   }
 
   const supabase = getSupabaseServerClient();
-  const result = await supabase.from("clients").select("id, name").order("name");
+  const result = await supabase.from("clients").select("id, name, whatsapp").order("name");
 
   if (result.error) {
-    return mockClients.map((item) => ({ id: item.id, name: item.name }));
+    return mockClients.map((item) => ({ id: item.id, name: item.name, whatsapp: item.whatsapp }));
   }
 
   return (result.data as Row[]).map((item) => ({
     id: asString(item.id),
     name: asString(item.name),
+    whatsapp: asString(item.whatsapp),
   }));
 }
 

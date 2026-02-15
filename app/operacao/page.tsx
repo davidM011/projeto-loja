@@ -1,20 +1,27 @@
 ﻿import Link from "next/link";
 import { SaleCreateForm } from "@/components/sale-create-form";
-import { getClientOptions, getProductOptions, getProductsData, getReceivablesData, getSalesData, getSaleOptions } from "@/lib/data";
+import { FiadoForm } from "@/components/fiado-form";
+import { getClientOptions, getProductOptions, getProductsData, getReceivablesData, getSalesData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperacaoPage() {
-  const [products, sales, receivables, clients, productOptions, saleOptions] = await Promise.all([
+  const [products, sales, receivables, clients, productOptions] = await Promise.all([
     getProductsData(),
     getSalesData(),
     getReceivablesData({ status: "TODOS", period: "TODOS" }),
     getClientOptions(),
     getProductOptions(),
-    getSaleOptions(),
   ]);
 
   const lowStock = products.filter((p) => p.stock != null && p.stock <= 5);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const nearLimitDate = new Date();
+  nearLimitDate.setDate(nearLimitDate.getDate() + 3);
+  const nearLimit = nearLimitDate.toISOString().slice(0, 10);
+  const overdueCount = receivables.filter((r) => r.status === "ATRASADO").length;
+  const nearDueCount = receivables.filter((r) => (r.status === "PENDENTE" && r.dueDate ? r.dueDate >= today && r.dueDate <= nearLimit : false)).length;
 
   return (
     <section className="grid page-gap">
@@ -121,48 +128,17 @@ export default async function OperacaoPage() {
       </article>
 
       <article className="card glass">
-        <h2>Fiado e contas a receber</h2>
-        <form action="/api/payments" method="post" className="form-grid">
-          <label className="field">
-            Venda*
-            <select name="saleId" required>
-              <option value="">Selecione</option>
-              {saleOptions.map((sale) => (
-                <option key={sale.id} value={sale.id}>
-                  {sale.code} - {sale.client} (R$ {sale.total.toFixed(2)})
-                </option>
-              ))}
-            </select>
-          </label>
+        <h2>Fichamento no fiado</h2>
+        <p className="muted">Cliente + celular + produto (valor automatico) + data da venda + data de pagamento.</p>
+        <FiadoForm action="/api/fiado" clients={clients} products={productOptions} />
 
-          <label className="field">
-            Metodo*
-            <select name="method" required>
-              <option value="PIX">PIX</option>
-              <option value="CARTAO">CARTAO</option>
-              <option value="MES_SEGUINTE">MES_SEGUINTE</option>
-            </select>
-          </label>
-
-          <label className="field">
-            Valor*
-            <input name="amount" type="number" min="0" step="0.01" required />
-          </label>
-
-          <label className="field">
-            Parcelas (cartao)
-            <input name="cardInstallments" type="number" min="1" step="1" />
-          </label>
-
-          <label className="field">
-            Bandeira (cartao)
-            <input name="cardBrand" />
-          </label>
-
-          <button className="btn" type="submit">
-            Salvar pagamento
-          </button>
-        </form>
+        {(overdueCount > 0 || nearDueCount > 0) && (
+          <div className="alert-strip" style={{ marginTop: "0.9rem" }}>
+            <strong>Avisos</strong>
+            <span>{overdueCount} atrasadas</span>
+            <span>{nearDueCount} perto de vencer (3 dias)</span>
+          </div>
+        )}
 
         <div style={{ marginTop: "0.9rem" }}>
           <table className="table glass">
@@ -170,7 +146,6 @@ export default async function OperacaoPage() {
               <tr>
                 <th>Cliente</th>
                 <th>Venda</th>
-                <th>Metodo</th>
                 <th>Vencimento</th>
                 <th>Valor</th>
                 <th>Status</th>
@@ -182,7 +157,6 @@ export default async function OperacaoPage() {
                 <tr key={item.id}>
                   <td>{item.client}</td>
                   <td>{item.saleCode}</td>
-                  <td>{item.method}</td>
                   <td>{item.dueDate ?? "-"}</td>
                   <td>R$ {item.amount.toFixed(2)}</td>
                   <td>

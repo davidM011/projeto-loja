@@ -1,4 +1,5 @@
-﻿import { getClientOptions, getReceivablesData, getSaleOptions } from "@/lib/data";
+﻿import { FiadoForm } from "@/components/fiado-form";
+import { getClientOptions, getProductOptions, getReceivablesData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +21,10 @@ export default async function ReceivablesPage({ searchParams }: { searchParams?:
   const clientId = pick(searchParams?.clientId);
   const period = pick(searchParams?.period);
 
-  const [allReceivables, sales, clients] = await Promise.all([
+  const [allReceivables, clients, products] = await Promise.all([
     getReceivablesData({ status, method, clientId, period: period as "TODOS" | "HOJE" | "PROX_7" | "ATRASADAS" }),
-    getSaleOptions(),
     getClientOptions(),
+    getProductOptions(),
   ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -39,53 +40,22 @@ export default async function ReceivablesPage({ searchParams }: { searchParams?:
     <section className="grid page-gap">
       <div className="section-head">
         <h1>Contas a receber</h1>
-        <p>Central unico para pagamentos, fiado e recebimentos.</p>
+        <p>Central unico do fiado: registro, alerta e recebimento.</p>
       </div>
 
       <article className="card glass">
-        <h2>Adicionar pagamento</h2>
-        <form action="/api/payments" method="post" className="form-grid">
-          <label className="field">
-            Venda*
-            <select name="saleId" required>
-              <option value="">Selecione</option>
-              {sales.map((sale) => (
-                <option key={sale.id} value={sale.id}>
-                  {sale.code} - {sale.client} (R$ {sale.total.toFixed(2)})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            Metodo*
-            <select name="method" required>
-              <option value="PIX">PIX</option>
-              <option value="CARTAO">CARTAO</option>
-              <option value="MES_SEGUINTE">MES_SEGUINTE</option>
-            </select>
-          </label>
-
-          <label className="field">
-            Valor*
-            <input name="amount" type="number" min="0" step="0.01" required />
-          </label>
-
-          <label className="field">
-            Parcelas (cartao)
-            <input name="cardInstallments" type="number" min="1" step="1" />
-          </label>
-
-          <label className="field">
-            Bandeira (cartao)
-            <input name="cardBrand" />
-          </label>
-
-          <button className="btn" type="submit">
-            Salvar pagamento
-          </button>
-        </form>
+        <h2>Novo fichamento no fiado</h2>
+        <FiadoForm action="/api/fiado" clients={clients} products={products} />
       </article>
+
+      {(overdue.length > 0 || next7.length > 0) && (
+        <div className="alert-strip">
+          <strong>Avisos</strong>
+          <span>{overdue.length} contas atrasadas</span>
+          <span>{next7.length} contas perto de vencer</span>
+          <span>{dueToday.length} vencem hoje</span>
+        </div>
+      )}
 
       <article className="card glass">
         <form action="/contas-receber" method="get" className="filter-grid">
@@ -103,9 +73,9 @@ export default async function ReceivablesPage({ searchParams }: { searchParams?:
             Metodo
             <select name="method" defaultValue={method}>
               <option value="TODOS">TODOS</option>
+              <option value="MES_SEGUINTE">MES_SEGUINTE</option>
               <option value="PIX">PIX</option>
               <option value="CARTAO">CARTAO</option>
-              <option value="MES_SEGUINTE">MES_SEGUINTE</option>
             </select>
           </label>
 
@@ -157,7 +127,6 @@ export default async function ReceivablesPage({ searchParams }: { searchParams?:
           <tr>
             <th>Cliente</th>
             <th>Venda</th>
-            <th>Metodo</th>
             <th>Vencimento</th>
             <th>Valor</th>
             <th>Status</th>
@@ -167,14 +136,13 @@ export default async function ReceivablesPage({ searchParams }: { searchParams?:
         <tbody>
           {allReceivables.length === 0 ? (
             <tr>
-              <td colSpan={7}>Nenhum registro encontrado com os filtros atuais.</td>
+              <td colSpan={6}>Nenhum registro encontrado com os filtros atuais.</td>
             </tr>
           ) : (
             allReceivables.map((item) => (
               <tr key={item.id}>
                 <td>{item.client}</td>
                 <td>{item.saleCode}</td>
-                <td>{item.method}</td>
                 <td>{item.dueDate ?? "-"}</td>
                 <td>R$ {item.amount.toFixed(2)}</td>
                 <td>

@@ -55,12 +55,24 @@ export default async function ProductsPage({ searchParams }: { searchParams?: Se
             <input name="name" required />
           </label>
           <label className="field">
+            SKU
+            <input name="sku" />
+          </label>
+          <label className="field">
+            Categoria
+            <input name="category" />
+          </label>
+          <label className="field">
             Preco de venda*
             <input name="salePrice" type="number" min="0" step="0.01" required />
           </label>
           <label className="field">
             Estoque
             <input name="stock" type="number" min="0" step="1" />
+          </label>
+          <label className="field">
+            Estoque minimo
+            <input name="minStock" type="number" min="0" step="1" defaultValue={0} />
           </label>
           <label className="field">
             Custo
@@ -76,9 +88,13 @@ export default async function ProductsPage({ searchParams }: { searchParams?: Se
         <thead>
           <tr>
             <th>Nome</th>
+            <th>SKU</th>
+            <th>Categoria</th>
             <th>Preco venda</th>
             <th>Estoque</th>
+            <th>Minimo</th>
             <th>Custo</th>
+            <th>Margem</th>
             <th>Acao</th>
           </tr>
         </thead>
@@ -86,9 +102,13 @@ export default async function ProductsPage({ searchParams }: { searchParams?: Se
           {products.map((p) => (
             <tr key={p.id}>
               <td>{p.name}</td>
+              <td>{p.sku || "-"}</td>
+              <td>{p.category || "-"}</td>
               <td>R$ {p.price.toFixed(2)}</td>
               <td>{p.stock ?? "-"}</td>
+              <td>{p.minStock ?? 0}</td>
               <td>{p.cost ? `R$ ${p.cost.toFixed(2)}` : "-"}</td>
+              <td>{p.cost ? `${(((p.price - p.cost) / p.price) * 100).toFixed(1)}%` : "-"}</td>
               <td>
                 <form action={`/api/products/${p.id}/delete`} method="post">
                   <button className="btn btn-secondary btn-small" type="submit">

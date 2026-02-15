@@ -44,7 +44,7 @@ function getReturnTo(form: FormData): string {
 }
 
 function methodIsValid(method: string): method is PaymentMethod {
-  return method === "PIX" || method === "CARTAO" || method === "MES_SEGUINTE";
+  return method === "PIX" || method === "DINHEIRO" || method === "CARTAO" || method === "TRANSFERENCIA" || method === "MES_SEGUINTE";
 }
 
 export async function POST(req: Request) {
@@ -54,6 +54,7 @@ export async function POST(req: Request) {
 
   const clientId = String(form.get("clientId") ?? "").trim();
   const saleDate = String(form.get("saleDate") ?? "").trim();
+  const responsible = String(form.get("responsible") ?? "").trim();
   const items = buildItems(form);
 
   const registerPaymentNow = String(form.get("registerPaymentNow") ?? "") === "on";
@@ -63,13 +64,17 @@ export async function POST(req: Request) {
   const cardInstallments = Number(form.get("cardInstallments") ?? 0);
   const cardBrand = String(form.get("cardBrand") ?? "").trim();
 
-  if (!clientId || !saleDate || items.length === 0) {
+  if (!clientId || !saleDate || !responsible || items.length === 0) {
     redirectUrl.searchParams.set("sale", "erro");
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
   if (registerPaymentNow) {
     if (!methodIsValid(paymentMethod) || !Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      redirectUrl.searchParams.set("sale", "erro");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
+    if (paymentMethod === "MES_SEGUINTE" && !paymentDueDate) {
       redirectUrl.searchParams.set("sale", "erro");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
@@ -109,7 +114,7 @@ export async function POST(req: Request) {
 
     const saleResult = await supabase
       .from("sales")
-      .insert({ client_id: clientId, sale_date: saleDate, total, created_by: user.id })
+      .insert({ client_id: clientId, sale_date: saleDate, total, responsible, created_by: user.id })
       .select("id")
       .single();
 

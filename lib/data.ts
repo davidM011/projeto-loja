@@ -45,6 +45,16 @@ export interface SaleOption {
   total: number;
 }
 
+export interface SaleListItem {
+  id: string;
+  code: string;
+  client: string;
+  date: string;
+  total: number;
+  status: string;
+  responsible?: string;
+}
+
 export interface ReceivableItem {
   id: string;
   saleId: string;
@@ -144,7 +154,7 @@ export async function getDashboardData() {
       .limit(12),
     supabase.from("sales").select("id, client_id"),
     supabase.from("clients").select("id, name"),
-    supabase.from("products").select("id, stock").not("stock", "is", null).lte("stock", 5),
+    supabase.from("products").select("id, stock, min_stock").not("stock", "is", null),
   ]);
 
   if (
@@ -167,7 +177,7 @@ export async function getDashboardData() {
   const overdueAmount = (openPaymentsResult.data as Row[])
     .filter((item) => asString(item.status) === "ATRASADO")
     .reduce((acc, item) => acc + asNumber(item.amount), 0);
-  const lowStockCount = (lowStockResult.data as Row[]).length;
+  const lowStockCount = (lowStockResult.data as Row[]).filter((p) => asNumber(p.stock, 0) <= asNumber(p.min_stock, 0)).length;
 
   const saleToClient = new Map<string, string>();
   for (const sale of salesForNamesResult.data as Row[]) {
@@ -202,7 +212,7 @@ export async function getClientsData() {
 
   const supabase = getSupabaseServerClient();
   const [clientsResult, salesResult, paymentsResult] = await Promise.all([
-    supabase.from("clients").select("id, name, whatsapp").order("name"),
+    supabase.from("clients").select("id, name, whatsapp, is_active").order("name"),
     supabase.from("sales").select("id, client_id"),
     supabase.from("payments").select("sale_id, amount, status"),
   ]);
@@ -234,6 +244,7 @@ export async function getClientsData() {
     id: asString(item.id),
     name: asString(item.name),
     whatsapp: asString(item.whatsapp),
+    isActive: Boolean(item.is_active),
     orders: orderCount.get(asString(item.id)) ?? 0,
     debt: debtByClient.get(asString(item.id)) ?? 0,
   }));
@@ -346,7 +357,7 @@ export async function getClientOptions(): Promise<ClientOption[]> {
   }
 
   const supabase = getSupabaseServerClient();
-  const result = await supabase.from("clients").select("id, name, whatsapp").order("name");
+  const result = await supabase.from("clients").select("id, name, whatsapp").eq("is_active", true).order("name");
 
   if (result.error) {
     return mockClients.map((item) => ({ id: item.id, name: item.name, whatsapp: item.whatsapp }));
@@ -360,18 +371,43 @@ export async function getClientOptions(): Promise<ClientOption[]> {
 }
 
 export async function getProductsData() {
-  if (!hasSupabaseEnv()) return mockProducts;
+  if (!hasSupabaseEnv()) {
+    return mockProducts.map((item) => ({
+      id: item.id,
+      name: item.name,
+      sku: "",
+      category: "",
+      price: item.price,
+      stock: item.stock ?? null,
+      minStock: 0,
+      cost: item.cost ?? null,
+    }));
+  }
 
   const supabase = getSupabaseServerClient();
-  const result = await supabase.from("products").select("id, name, sale_price, stock, cost_price").order("name");
+  const result = await supabase.from("products").select("id, name, sku, category, sale_price, stock, min_stock, cost_price").order("name");
 
-  if (result.error) return mockProducts;
+  if (result.error) {
+    return mockProducts.map((item) => ({
+      id: item.id,
+      name: item.name,
+      sku: "",
+      category: "",
+      price: item.price,
+      stock: item.stock ?? null,
+      minStock: 0,
+      cost: item.cost ?? null,
+    }));
+  }
 
   return (result.data as Row[]).map((item) => ({
     id: asString(item.id),
     name: asString(item.name),
+    sku: asString(item.sku),
+    category: asString(item.category),
     price: asNumber(item.sale_price),
     stock: item.stock == null ? null : asNumber(item.stock),
+    minStock: asNumber(item.min_stock, 0),
     cost: item.cost_price == null ? null : asNumber(item.cost_price),
   }));
 }
@@ -395,12 +431,12 @@ export async function getProductOptions(): Promise<ProductOption[]> {
   }));
 }
 
-export async function getSalesData() {
+export async function getSalesData(): Promise<SaleListItem[]> {
   if (!hasSupabaseEnv()) return mockSales;
 
   const supabase = getSupabaseServerClient();
   const [salesResult, clientsResult] = await Promise.all([
-    supabase.from("sales").select("id, client_id, sale_date, total, status").order("sale_date", { ascending: false }),
+    supabase.from("sales").select("id, client_id, sale_date, total, status, responsible").order("sale_date", { ascending: false }),
     supabase.from("clients").select("id, name"),
   ]);
 
@@ -418,6 +454,7 @@ export async function getSalesData() {
     date: toIsoDate(sale.sale_date),
     total: asNumber(sale.total),
     status: asString(sale.status),
+    responsible: asString(sale.responsible),
   }));
 }
 

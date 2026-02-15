@@ -1,4 +1,4 @@
-﻿export type PaymentMethod = "PIX" | "CARTAO" | "MES_SEGUINTE";
+export type PaymentMethod = "PIX" | "DINHEIRO" | "CARTAO" | "TRANSFERENCIA" | "MES_SEGUINTE";
 
 export type PaymentStatus = "PENDENTE" | "CONFIRMADO" | "ATRASADO";
 

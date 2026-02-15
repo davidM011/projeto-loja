@@ -40,7 +40,7 @@ export function SaleCreateForm({
 }) {
   const [rows, setRows] = useState<ItemRow[]>([createRow(1)]);
   const [registerPaymentNow, setRegisterPaymentNow] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARTAO" | "MES_SEGUINTE">("PIX");
+  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "DINHEIRO" | "CARTAO" | "TRANSFERENCIA" | "MES_SEGUINTE">("PIX");
   const [paymentAmount, setPaymentAmount] = useState("");
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p.price])), [products]);
@@ -90,6 +90,14 @@ export function SaleCreateForm({
         <label className="field">
           Data*
           <input name="saleDate" type="date" required />
+        </label>
+
+        <label className="field">
+          Responsavel*
+          <select name="responsible" defaultValue="USUARIO_1" required>
+            <option value="USUARIO_1">Usuario 1</option>
+            <option value="USUARIO_2">Usuario 2</option>
+          </select>
         </label>
       </div>
 
@@ -175,10 +183,16 @@ export function SaleCreateForm({
           <div className="form-grid">
             <label className="field">
               Metodo*
-              <select name="paymentMethod" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as "PIX" | "CARTAO" | "MES_SEGUINTE")}>
+              <select
+                name="paymentMethod"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as "PIX" | "DINHEIRO" | "CARTAO" | "TRANSFERENCIA" | "MES_SEGUINTE")}
+              >
                 <option value="PIX">PIX</option>
+                <option value="DINHEIRO">Dinheiro</option>
                 <option value="CARTAO">CARTAO</option>
-                <option value="MES_SEGUINTE">MES_SEGUINTE</option>
+                <option value="TRANSFERENCIA">Transferencia</option>
+                <option value="MES_SEGUINTE">Fiado</option>
               </select>
             </label>
 
@@ -189,8 +203,8 @@ export function SaleCreateForm({
 
             {paymentMethod === "MES_SEGUINTE" && (
               <label className="field">
-                Vencimento
-                <input name="paymentDueDate" type="date" />
+                Data de vencimento*
+                <input name="paymentDueDate" type="date" required />
               </label>
             )}
 

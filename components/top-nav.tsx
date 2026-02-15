@@ -1,11 +1,9 @@
 import Link from "next/link";
 
 const links = [
-  { href: "/", label: "Dashboard" },
   { href: "/operacao", label: "Operacao" },
-  { href: "/fiado", label: "Fiado" },
-  { href: "/clientes", label: "Clientes" },
-  { href: "/relatorios", label: "Relatorios" },
+  { href: "/produtos", label: "Produtos" },
+  { href: "/dashboards", label: "Dashboards" },
 ];
 
 export function TopNav() {

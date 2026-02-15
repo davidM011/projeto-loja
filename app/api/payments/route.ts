@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const installmentsText = String(form.get("cardInstallments") ?? "").trim();
   const cardBrand = String(form.get("cardBrand") ?? "").trim();
 
-  const validMethod = method === "PIX" || method === "CARTAO" || method === "MES_SEGUINTE";
+  const validMethod = method === "PIX" || method === "DINHEIRO" || method === "CARTAO" || method === "TRANSFERENCIA" || method === "MES_SEGUINTE";
   if (!saleId || !validMethod || amount <= 0) {
     return NextResponse.redirect(new URL("/contas-receber", req.url), { status: 303 });
   }

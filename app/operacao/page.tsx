@@ -1,138 +1,89 @@
 import Link from "next/link";
 import { SaleCreateForm } from "@/components/sale-create-form";
-import { getClientOptions, getFiadoStats, getProductsData, getSalesData } from "@/lib/data";
+import { getClientOptions, getClientsData, getProductOptions, getReceivablesData, getSalesData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = {
   sale?: string | string[];
-  productDelete?: string | string[];
-  productCreate?: string | string[];
+  status?: string | string[];
+  method?: string | string[];
+  clientId?: string | string[];
+  period?: string | string[];
 };
 
-function pick(value: string | string[] | undefined) {
-  if (Array.isArray(value)) return value[0] ?? "";
-  return value ?? "";
+function pick(value: string | string[] | undefined, fallback = "TODOS") {
+  if (Array.isArray(value)) return value[0] ?? fallback;
+  return value ?? fallback;
 }
 
 export default async function OperacaoPage({ searchParams }: { searchParams?: SearchParams }) {
-  const [products, sales, fiadoStats, clients] = await Promise.all([
-    getProductsData(),
+  const saleFeedback = pick(searchParams?.sale, "");
+  const status = pick(searchParams?.status, "TODOS");
+  const method = pick(searchParams?.method, "TODOS");
+  const clientId = pick(searchParams?.clientId, "TODOS");
+  const period = pick(searchParams?.period, "TODOS");
+
+  const [sales, clients, clientOptions, productOptions, receivables] = await Promise.all([
     getSalesData(),
-    getFiadoStats(),
+    getClientsData(),
     getClientOptions(),
+    getProductOptions(),
+    getReceivablesData({ status, method, clientId, period: period as "TODOS" | "HOJE" | "PROX_7" | "ATRASADAS" }),
   ]);
-
-  const lowStock = products.filter((p) => p.stock != null && p.stock <= 5);
-  const saleFeedback = pick(searchParams?.sale);
-  const productDelete = pick(searchParams?.productDelete);
-  const productCreate = pick(searchParams?.productCreate);
-
-  const overdueFiado = fiadoStats.overdueCount;
-  const openFiado = fiadoStats.openCount;
 
   return (
     <section className="grid page-gap">
       <div className="section-head">
         <h1>Operacao</h1>
-        <p>Cadastro de produto, estoque e venda em um unico fluxo.</p>
-      </div>
-
-      <div className="grid grid-4">
-        <article className="card glass compact-card">
-          <h3>Produtos cadastrados</h3>
-          <strong>{products.length}</strong>
-        </article>
-        <article className="card glass compact-card">
-          <h3>Estoque baixo</h3>
-          <strong>{lowStock.length}</strong>
-        </article>
-        <article className="card glass compact-card">
-          <h3>Vendas registradas</h3>
-          <strong>{sales.length}</strong>
-        </article>
-        <article className="card glass compact-card">
-          <h3>Fiado em aberto</h3>
-          <strong>{openFiado}</strong>
-        </article>
+        <p>Vendas, clientes e pagamentos em uma unica aba.</p>
       </div>
 
       <article className="card glass">
-        <h2>Cadastro de produto e estoque</h2>
-        {productDelete === "ok" && (
-          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
-            <strong>Produto removido</strong>
-            <span>Registro excluido com sucesso.</span>
-          </div>
-        )}
-        {productCreate === "ok" && (
-          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
-            <strong>Produto salvo</strong>
-            <span>Cadastro concluido com sucesso.</span>
-          </div>
-        )}
-        {productDelete === "vinculado" && (
-          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
-            <strong>Nao foi possivel remover</strong>
-            <span>Esse produto possui vendas vinculadas.</span>
-          </div>
-        )}
-        {productDelete === "erro" && (
-          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
-            <strong>Erro ao remover</strong>
-            <span>Tente novamente em alguns segundos.</span>
-          </div>
-        )}
-
-        <form action="/api/products" method="post" className="form-grid">
+        <h2>Cadastro de clientes</h2>
+        <form action="/api/clients" method="post" className="form-grid">
           <input type="hidden" name="returnTo" value="/operacao" />
           <label className="field">
             Nome*
             <input name="name" required />
           </label>
           <label className="field">
-            Preco de venda*
-            <input name="salePrice" type="number" min="0" step="0.01" required />
+            Telefone/contato*
+            <input name="whatsapp" required />
           </label>
           <label className="field">
-            Estoque
-            <input name="stock" type="number" min="0" step="1" />
+            Status
+            <select name="isActive" defaultValue="true">
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
           </label>
-          <label className="field">
-            Custo
-            <input name="cost" type="number" min="0" step="0.01" />
+          <label className="field" style={{ gridColumn: "1 / -1" }}>
+            Observacoes
+            <textarea name="notes" rows={2} />
           </label>
           <button className="btn" type="submit">
-            Salvar produto
+            Salvar cliente
           </button>
         </form>
 
-        <div style={{ marginTop: "0.9rem" }}>
+        <div style={{ marginTop: "0.8rem" }}>
           <table className="table glass">
             <thead>
               <tr>
-                <th>Produto</th>
-                <th>Preco</th>
-                <th>Estoque</th>
-                <th>Alerta</th>
-                <th>Acao</th>
+                <th>Cliente</th>
+                <th>Contato</th>
+                <th>Compras</th>
+                <th>Divida</th>
               </tr>
             </thead>
             <tbody>
-              {products.slice(0, 12).map((p) => (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td>R$ {p.price.toFixed(2)}</td>
-                  <td>{p.stock ?? "-"}</td>
-                  <td>{p.stock != null && p.stock <= 5 ? <span className="badge badge-danger">Baixo</span> : <span className="badge">OK</span>}</td>
-                  <td>
-                    <form action={`/api/products/${p.id}/delete`} method="post">
-                      <input type="hidden" name="returnTo" value="/operacao" />
-                      <button className="btn btn-secondary btn-small" type="submit">
-                        Remover
-                      </button>
-                    </form>
-                  </td>
+              {clients.slice(0, 8).map((c) => (
+                <tr key={c.id}>
+                  <td>{c.name}</td>
+                  <td>{c.whatsapp}</td>
+                  <td>{c.orders}</td>
+                  <td>R$ {c.debt.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -141,47 +92,49 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
       </article>
 
       <article className="card glass">
-        <h2>Cadastro de venda</h2>
+        <h2>Registro de vendas</h2>
         {saleFeedback === "ok" && (
           <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
-            <strong>Venda criada</strong>
-            <span>Venda registrada com sucesso.</span>
-          </div>
-        )}
-        {saleFeedback === "erro" && (
-          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
-            <strong>Falha ao criar venda</strong>
-            <span>Confira os dados dos itens e pagamento.</span>
+            <strong>Venda registrada</strong>
+            <span>Cadastro concluido com sucesso.</span>
           </div>
         )}
         {saleFeedback === "estoque" && (
           <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
             <strong>Estoque insuficiente</strong>
-            <span>Um ou mais produtos nao possuem saldo para esta venda.</span>
+            <span>Venda bloqueada para evitar estoque negativo.</span>
+          </div>
+        )}
+        {saleFeedback === "erro" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Falha ao salvar venda</strong>
+            <span>Revise os campos e tente novamente.</span>
           </div>
         )}
 
-        <SaleCreateForm clients={clients} products={products.map((p) => ({ id: p.id, name: p.name, price: p.price }))} returnTo="/operacao" />
+        <SaleCreateForm clients={clientOptions} products={productOptions} returnTo="/operacao" />
 
-        <div style={{ marginTop: "0.9rem" }}>
+        <div style={{ marginTop: "0.8rem" }}>
           <table className="table glass">
             <thead>
               <tr>
-                <th>Venda</th>
+                <th>ID</th>
                 <th>Cliente</th>
                 <th>Data</th>
                 <th>Total</th>
                 <th>Status</th>
+                <th>Responsavel</th>
               </tr>
             </thead>
             <tbody>
-              {sales.slice(0, 10).map((sale) => (
+              {sales.slice(0, 12).map((sale) => (
                 <tr key={sale.id}>
                   <td>{sale.code}</td>
                   <td>{sale.client}</td>
                   <td>{sale.date}</td>
                   <td>R$ {sale.total.toFixed(2)}</td>
                   <td>{sale.status}</td>
+                  <td>{sale.responsible || "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -190,14 +143,106 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
       </article>
 
       <article className="card glass">
-        <h2>Atalho para fiado</h2>
-        <p className="muted">Toda gestao de fiado (registro, alertas e recebimento) agora fica em uma tela exclusiva.</p>
-        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-          <Link href="/fiado" className="btn">
-            Abrir central de fiado
-          </Link>
-          <span className="badge">{overdueFiado} atrasadas</span>
-          <span className="badge">{openFiado} em aberto</span>
+        <h2>Pagamentos e fiado</h2>
+        <form action="/operacao" method="get" className="filter-grid">
+          <label className="field-inline">
+            Status
+            <select name="status" defaultValue={status}>
+              <option value="TODOS">TODOS</option>
+              <option value="PENDENTE">PENDENTE</option>
+              <option value="ATRASADO">ATRASADO</option>
+              <option value="CONFIRMADO">PAGO</option>
+            </select>
+          </label>
+
+          <label className="field-inline">
+            Forma
+            <select name="method" defaultValue={method}>
+              <option value="TODOS">TODOS</option>
+              <option value="PIX">PIX</option>
+              <option value="DINHEIRO">DINHEIRO</option>
+              <option value="CARTAO">CARTAO</option>
+              <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+              <option value="MES_SEGUINTE">FIADO</option>
+            </select>
+          </label>
+
+          <label className="field-inline">
+            Cliente
+            <select name="clientId" defaultValue={clientId}>
+              <option value="TODOS">TODOS</option>
+              {clientOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field-inline">
+            Periodo
+            <select name="period" defaultValue={period}>
+              <option value="TODOS">TODOS</option>
+              <option value="HOJE">HOJE</option>
+              <option value="PROX_7">PROXIMOS 7 DIAS</option>
+              <option value="ATRASADAS">ATRASADAS</option>
+            </select>
+          </label>
+
+          <button className="btn" type="submit">
+            Filtrar
+          </button>
+        </form>
+
+        <div style={{ marginTop: "0.8rem" }}>
+          <table className="table glass">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Venda</th>
+                <th>Metodo</th>
+                <th>Vencimento</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Acao</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receivables.length === 0 ? (
+                <tr>
+                  <td colSpan={7}>Nenhum pagamento encontrado.</td>
+                </tr>
+              ) : (
+                receivables.slice(0, 25).map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.client}</td>
+                    <td>{item.saleCode}</td>
+                    <td>{item.method === "MES_SEGUINTE" ? "FIADO" : item.method}</td>
+                    <td>{item.dueDate ?? "-"}</td>
+                    <td>R$ {item.amount.toFixed(2)}</td>
+                    <td>{item.status}</td>
+                    <td>
+                      {item.status === "CONFIRMADO" ? (
+                        "-"
+                      ) : (
+                        <form action={`/api/payments/${item.id}/confirm`} method="post">
+                          <input type="hidden" name="returnTo" value="/operacao" />
+                          <button className="btn btn-small" type="submit">
+                            Marcar pago
+                          </button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <div style={{ marginTop: "0.7rem" }}>
+            <Link className="btn btn-secondary" href="/fiado">
+              Abrir central completa de fiado
+            </Link>
+          </div>
         </div>
       </article>
     </section>

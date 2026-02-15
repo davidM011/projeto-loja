@@ -114,20 +114,27 @@ main {
 }
 
 .page-gap {
-  gap: 1.25rem;
+  gap: 1.5rem;
+}
+
+.section-head {
+  display: grid;
+  gap: 0.25rem;
 }
 
 .section-head h1 {
   margin: 0;
-  font-size: 1.85rem;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
 }
 
 .section-head p {
-  margin: 0.38rem 0 0;
-  color: var(--text-soft);
-  font-size: 0.98rem;
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.95rem;
 }
 
 .muted {
@@ -135,15 +142,24 @@ main {
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: rgba(30, 41, 59, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius);
-  padding: 1.05rem;
+  padding: 1.15rem;
+  backdrop-filter: blur(6px);
   box-shadow: var(--shadow-sm);
 }
 
 .glass {
-  background: linear-gradient(180deg, #3b4c64, var(--surface-soft));
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.72), rgba(41, 53, 72, 0.72));
+}
+
+.card h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: -0.01em;
 }
 
 .kpi-card {
@@ -208,7 +224,8 @@ main {
 }
 
 .table td {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
+  color: #e2e8f0;
 }
 
 .table tbody tr:nth-child(even) td {
@@ -251,13 +268,13 @@ main {
 
 .form-grid {
   display: grid;
-  gap: 0.8rem;
+  gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .filter-grid {
   display: grid;
-  gap: 0.8rem;
+  gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
   align-items: end;
 }
@@ -272,10 +289,11 @@ main {
 .field,
 .field-inline {
   display: grid;
-  gap: 0.35rem;
-  color: var(--text-soft);
-  font-size: 0.83rem;
-  font-weight: 600;
+  gap: 0.38rem;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .field input,
@@ -315,19 +333,21 @@ main {
 
 .btn {
   border: 1px solid var(--primary);
-  background: linear-gradient(180deg, #818cf8, var(--primary));
+  background: var(--primary);
   color: #fff;
   border-radius: 10px;
-  padding: 0.55rem 0.84rem;
+  padding: 0.62rem 1.05rem;
   font: inherit;
-  font-size: 0.86rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
   transition: transform 0.08s ease, filter 0.15s ease;
 }
 
 .btn:hover {
-  filter: brightness(0.97);
+  background: #7c83ff;
+  border-color: #7c83ff;
+  filter: none;
 }
 
 .btn:active {

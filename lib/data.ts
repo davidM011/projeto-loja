@@ -106,7 +106,11 @@ function filterReceivable(item: ReceivableItem, filters: ReceivablesFilters): bo
 }
 
 export async function getDashboardData() {
-  if (!hasSupabaseEnv()) return mockDashboard;
+  if (!hasSupabaseEnv()) {
+    const overdueAmount = mockReceivables.filter((p) => p.status === "ATRASADO").reduce((acc, p) => acc + p.amount, 0);
+    const lowStockCount = mockProducts.filter((p) => (p.stock ?? 0) <= 5).length;
+    return { ...mockDashboard, overdueAmount, lowStockCount };
+  }
 
   const supabase = getSupabaseServerClient();
   const now = new Date();
@@ -114,7 +118,7 @@ export async function getDashboardData() {
   const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
   const in7Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 7)).toISOString().slice(0, 10);
 
-  const [salesResult, openPaymentsResult, day10Result, dueSoonResult, salesForNamesResult, clientsResult] = await Promise.all([
+  const [salesResult, openPaymentsResult, day10Result, dueSoonResult, salesForNamesResult, clientsResult, lowStockResult] = await Promise.all([
     supabase.from("sales").select("total, sale_date").gte("sale_date", monthStart).lt("sale_date", monthEnd),
     supabase.from("payments").select("amount, status").in("status", ["PENDENTE", "ATRASADO"]),
     supabase
@@ -134,6 +138,7 @@ export async function getDashboardData() {
       .limit(12),
     supabase.from("sales").select("id, client_id"),
     supabase.from("clients").select("id, name"),
+    supabase.from("products").select("id, stock").not("stock", "is", null).lte("stock", 5),
   ]);
 
   if (
@@ -142,14 +147,21 @@ export async function getDashboardData() {
     day10Result.error ||
     dueSoonResult.error ||
     salesForNamesResult.error ||
-    clientsResult.error
+    clientsResult.error ||
+    lowStockResult.error
   ) {
-    return mockDashboard;
+    const overdueAmount = mockReceivables.filter((p) => p.status === "ATRASADO").reduce((acc, p) => acc + p.amount, 0);
+    const lowStockCount = mockProducts.filter((p) => (p.stock ?? 0) <= 5).length;
+    return { ...mockDashboard, overdueAmount, lowStockCount };
   }
 
   const soldMonth = (salesResult.data as Row[]).reduce((acc, item) => acc + asNumber(item.total), 0);
   const openAmount = (openPaymentsResult.data as Row[]).reduce((acc, item) => acc + asNumber(item.amount), 0);
   const nextDay10Count = (day10Result.data as Row[]).length;
+  const overdueAmount = (openPaymentsResult.data as Row[])
+    .filter((item) => asString(item.status) === "ATRASADO")
+    .reduce((acc, item) => acc + asNumber(item.amount), 0);
+  const lowStockCount = (lowStockResult.data as Row[]).length;
 
   const saleToClient = new Map<string, string>();
   for (const sale of salesForNamesResult.data as Row[]) {
@@ -176,7 +188,7 @@ export async function getDashboardData() {
     };
   });
 
-  return { soldMonth, openAmount, nextDay10Count, nextDue };
+  return { soldMonth, openAmount, nextDay10Count, overdueAmount, lowStockCount, nextDue };
 }
 
 export async function getClientsData() {

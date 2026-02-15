@@ -6,25 +6,32 @@ export default async function HomePage() {
   const dashboard = await getDashboardData();
 
   return (
-    <section className="grid" style={{ gap: "1.2rem" }}>
-      <h1>Dashboard</h1>
+    <section className="grid page-gap">
+      <div className="section-head">
+        <h1>Dashboard</h1>
+        <p>Visao geral financeira e operacional da loja.</p>
+      </div>
 
-      <div className="grid grid-3">
-        <article className="card">
-          <div>Vendido no mes</div>
-          <div className="kpi">R$ {dashboard.soldMonth.toFixed(2)}</div>
+      <div className="grid grid-4">
+        <article className="card kpi-card glass">
+          <span>Vendido no mes</span>
+          <strong>R$ {dashboard.soldMonth.toFixed(2)}</strong>
         </article>
-        <article className="card">
-          <div>Total a receber</div>
-          <div className="kpi">R$ {dashboard.openAmount.toFixed(2)}</div>
+        <article className="card kpi-card glass">
+          <span>Total a receber</span>
+          <strong>R$ {dashboard.openAmount.toFixed(2)}</strong>
         </article>
-        <article className="card">
-          <div>Vence dia 10 (proximo mes)</div>
-          <div className="kpi">{dashboard.nextDay10Count}</div>
+        <article className="card kpi-card glass">
+          <span>Total atrasado</span>
+          <strong>R$ {dashboard.overdueAmount.toFixed(2)}</strong>
+        </article>
+        <article className="card kpi-card glass">
+          <span>Estoque baixo</span>
+          <strong>{dashboard.lowStockCount}</strong>
         </article>
       </div>
 
-      <article className="card">
+      <article className="card glass">
         <h2>Proximos vencimentos (7 dias)</h2>
         <table className="table">
           <thead>

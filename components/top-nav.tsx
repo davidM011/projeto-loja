@@ -3,10 +3,9 @@ import { getAuthenticatedUser } from "@/lib/supabase-server";
 
 const links = [
   { href: "/", label: "Dashboard" },
-  { href: "/vendas", label: "Vendas" },
-  { href: "/contas-receber", label: "Contas a receber" },
-  { href: "/clientes", label: "Clientes" },
-  { href: "/produtos", label: "Produtos" },
+  { href: "/operacao", label: "Operacao" },
+  { href: "/relatorios", label: "Relatorios" },
+  { href: "/clientes", label: "Clientes 360" },
 ];
 
 export async function TopNav() {

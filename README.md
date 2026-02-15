@@ -10,6 +10,8 @@ Sistema web para controle de clientes, produtos, vendas e pagamentos (`PIX`, `CA
 - Venda suporta multiplos itens no mesmo lancamento.
 - Tela `Cliente 360` com historico e fiado unificados.
 - Contas a receber com filtros por status, metodo, cliente e periodo.
+- Tela `Operacao` unificada com produto, venda e fiado no mesmo fluxo.
+- Tela `Relatorios` com graficos rapidos e exportacao CSV (vendas/pagamentos).
 
 ## Setup local
 

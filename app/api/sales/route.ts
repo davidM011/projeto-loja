@@ -54,7 +54,6 @@ export async function POST(req: Request) {
 
   const clientId = String(form.get("clientId") ?? "").trim();
   const saleDate = String(form.get("saleDate") ?? "").trim();
-  const responsible = String(form.get("responsible") ?? "").trim();
   const items = buildItems(form);
 
   const registerPaymentNow = String(form.get("registerPaymentNow") ?? "") === "on";
@@ -64,7 +63,7 @@ export async function POST(req: Request) {
   const cardInstallments = Number(form.get("cardInstallments") ?? 0);
   const cardBrand = String(form.get("cardBrand") ?? "").trim();
 
-  if (!clientId || !saleDate || !responsible || items.length === 0) {
+  if (!clientId || !saleDate || items.length === 0) {
     redirectUrl.searchParams.set("sale", "erro");
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
@@ -85,6 +84,13 @@ export async function POST(req: Request) {
   try {
     const user = await requireAuthenticatedUser();
     const supabase = getSupabaseServerClient();
+
+    let responsibleName = (user.email ?? "Usuario").split("@")[0];
+    const profileResult = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+    if (!profileResult.error) {
+      const profileName = String(profileResult.data?.full_name ?? "").trim();
+      if (profileName) responsibleName = profileName;
+    }
 
     const uniqueProductIds = Array.from(new Set(items.map((item) => item.productId)));
     const stockResult = await supabase.from("products").select("id, stock").in("id", uniqueProductIds);
@@ -114,7 +120,7 @@ export async function POST(req: Request) {
 
     const saleResult = await supabase
       .from("sales")
-      .insert({ client_id: clientId, sale_date: saleDate, total, responsible, created_by: user.id })
+      .insert({ client_id: clientId, sale_date: saleDate, total, responsible: responsibleName, created_by: user.id })
       .select("id")
       .single();
 

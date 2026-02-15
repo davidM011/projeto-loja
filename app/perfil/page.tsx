@@ -19,13 +19,12 @@ export default async function PerfilPage({ searchParams }: { searchParams?: Sear
   let profile: {
     full_name: string | null;
     phone: string | null;
-    role: string | null;
     notes: string | null;
   } | null = null;
 
   const profileResult = await supabase
     .from("profiles")
-    .select("full_name, phone, role, notes")
+    .select("full_name, phone, notes")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -66,13 +65,6 @@ export default async function PerfilPage({ searchParams }: { searchParams?: Sear
           <label className="field">
             Telefone
             <input name="phone" defaultValue={profile?.phone ?? ""} />
-          </label>
-          <label className="field">
-            Funcao
-            <select name="role" defaultValue={profile?.role ?? "USUARIO_2"}>
-              <option value="USUARIO_1">Usuario 1</option>
-              <option value="USUARIO_2">Usuario 2</option>
-            </select>
           </label>
           <label className="field" style={{ gridColumn: "1 / -1" }}>
             Observacoes

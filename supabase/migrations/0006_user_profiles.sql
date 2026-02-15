@@ -4,7 +4,6 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   phone text,
-  role text not null default 'USUARIO_2' check (role in ('USUARIO_1', 'USUARIO_2')),
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -32,8 +31,8 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, role)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''), 'USUARIO_2')
+  insert into public.profiles (id, full_name)
+  values (new.id, nullif(trim(coalesce(new.raw_user_meta_data->>'full_name', '')), ''))
   on conflict (id) do nothing;
   return new;
 end;

@@ -5,10 +5,8 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const fullName = String(form.get("fullName") ?? "").trim();
   const phone = String(form.get("phone") ?? "").trim();
-  const role = String(form.get("role") ?? "USUARIO_2").trim();
   const notes = String(form.get("notes") ?? "").trim();
 
-  const safeRole = role === "USUARIO_1" || role === "USUARIO_2" ? role : "USUARIO_2";
   const redirectUrl = new URL("/perfil", req.url);
 
   try {
@@ -20,7 +18,6 @@ export async function POST(req: Request) {
         id: user.id,
         full_name: fullName || null,
         phone: phone || null,
-        role: safeRole,
         notes: notes || null,
       },
       { onConflict: "id" }

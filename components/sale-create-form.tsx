@@ -92,13 +92,6 @@ export function SaleCreateForm({
           <input name="saleDate" type="date" required />
         </label>
 
-        <label className="field">
-          Responsavel*
-          <select name="responsible" defaultValue="USUARIO_1" required>
-            <option value="USUARIO_1">Usuario 1</option>
-            <option value="USUARIO_2">Usuario 2</option>
-          </select>
-        </label>
       </div>
 
       <div className="grid" style={{ gap: "0.6rem" }}>

@@ -13,6 +13,7 @@ function LoginContent() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("login");
@@ -34,7 +35,21 @@ function LoginContent() {
         router.refresh();
       }
     } else if (mode === "signup") {
-      const { error: signupError } = await supabase.auth.signUp({ email, password });
+      if (!fullName.trim()) {
+        setError("Informe seu nome para criar a conta.");
+        setLoading(false);
+        return;
+      }
+
+      const { error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+          },
+        },
+      });
       if (signupError) {
         setError(signupError.message);
       } else {
@@ -62,6 +77,13 @@ function LoginContent() {
         <p>Use um login para acessar o sistema compartilhado.</p>
 
         <form onSubmit={onSubmit} className="form-grid">
+          {mode === "signup" ? (
+            <label className="field">
+              Nome completo
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            </label>
+          ) : null}
+
           <label className="field">
             Email
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

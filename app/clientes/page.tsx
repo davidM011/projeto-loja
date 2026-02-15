@@ -1,4 +1,5 @@
-﻿import { getClientsData } from "@/lib/data";
+﻿import Link from "next/link";
+import { getClientsData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -6,10 +7,13 @@ export default async function ClientsPage() {
   const clients = await getClientsData();
 
   return (
-    <section className="grid">
-      <h1>Clientes</h1>
+    <section className="grid page-gap">
+      <div className="section-head">
+        <h1>Clientes</h1>
+        <p>Cadastre clientes e acompanhe historico e fiado em um clique.</p>
+      </div>
 
-      <article className="card">
+      <article className="card glass">
         <h2>Novo cliente</h2>
         <form action="/api/clients" method="post" className="form-grid">
           <label className="field">
@@ -30,13 +34,14 @@ export default async function ClientsPage() {
         </form>
       </article>
 
-      <table className="table">
+      <table className="table glass">
         <thead>
           <tr>
             <th>Nome</th>
             <th>WhatsApp</th>
-            <th>Historico</th>
+            <th>Compras</th>
             <th>Divida atual</th>
+            <th>Acao</th>
           </tr>
         </thead>
         <tbody>
@@ -44,8 +49,13 @@ export default async function ClientsPage() {
             <tr key={c.id}>
               <td>{c.name}</td>
               <td>{c.whatsapp}</td>
-              <td>{c.orders} compras</td>
+              <td>{c.orders}</td>
               <td>R$ {c.debt.toFixed(2)}</td>
+              <td>
+                <Link className="btn btn-secondary btn-small" href={`/clientes/${c.id}`}>
+                  Abrir 360
+                </Link>
+              </td>
             </tr>
           ))}
         </tbody>

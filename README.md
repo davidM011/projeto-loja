@@ -8,6 +8,8 @@ Sistema web para controle de clientes, produtos, vendas e pagamentos (`PIX`, `CA
 - Se passou do vencimento e nao foi pago: `ATRASADO`.
 - Ao confirmar pagamento (`paid_at`): `CONFIRMADO`.
 - Venda suporta multiplos itens no mesmo lancamento.
+- Tela `Cliente 360` com historico e fiado unificados.
+- Contas a receber com filtros por status, metodo, cliente e periodo.
 
 ## Setup local
 

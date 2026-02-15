@@ -22,6 +22,10 @@ function getNextMonthDay10(base = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export interface ClientOption {
   id: string;
   name: string;
@@ -38,6 +42,67 @@ export interface SaleOption {
   code: string;
   client: string;
   total: number;
+}
+
+export interface ReceivableItem {
+  id: string;
+  saleId: string;
+  clientId: string;
+  client: string;
+  saleCode: string;
+  method: string;
+  dueDate: string | null;
+  amount: number;
+  status: string;
+}
+
+export interface ReceivablesFilters {
+  status?: string;
+  method?: string;
+  clientId?: string;
+  period?: "TODOS" | "HOJE" | "PROX_7" | "ATRASADAS";
+}
+
+export interface ClientDetailData {
+  id: string;
+  name: string;
+  whatsapp: string;
+  notes: string;
+  totalOpen: number;
+  overdueCount: number;
+  totalPurchases: number;
+  totalPaid: number;
+  recentSales: Array<{ id: string; code: string; date: string; total: number; status: string }>;
+  openPayments: ReceivableItem[];
+}
+
+function filterReceivable(item: ReceivableItem, filters: ReceivablesFilters): boolean {
+  const status = filters.status ?? "TODOS";
+  const method = filters.method ?? "TODOS";
+  const clientId = filters.clientId ?? "TODOS";
+  const period = filters.period ?? "TODOS";
+
+  if (status !== "TODOS" && item.status !== status) return false;
+  if (method !== "TODOS" && item.method !== method) return false;
+  if (clientId !== "TODOS" && item.clientId !== clientId) return false;
+
+  if (period === "TODOS") return true;
+
+  const today = todayIso();
+  const in7 = new Date();
+  in7.setDate(in7.getDate() + 7);
+  const in7Iso = in7.toISOString().slice(0, 10);
+  const due = item.dueDate;
+
+  if (period === "ATRASADAS") {
+    return item.status === "ATRASADO";
+  }
+
+  if (!due) return false;
+  if (period === "HOJE") return due === today;
+  if (period === "PROX_7") return due >= today && due <= in7Iso;
+
+  return true;
 }
 
 export async function getDashboardData() {
@@ -154,6 +219,107 @@ export async function getClientsData() {
     orders: orderCount.get(asString(item.id)) ?? 0,
     debt: debtByClient.get(asString(item.id)) ?? 0,
   }));
+}
+
+export async function getClientDetailData(clientId: string): Promise<ClientDetailData | null> {
+  if (!clientId) return null;
+
+  if (!hasSupabaseEnv()) {
+    const client = mockClients.find((c) => c.id === clientId) ?? mockClients[0];
+    const openPayments = mockReceivables
+      .filter((r) => r.client === client.name)
+      .filter((r) => r.status !== "CONFIRMADO")
+      .map((r) => ({
+        id: r.id,
+        saleId: r.saleCode,
+        clientId: client.id,
+        client: r.client,
+        saleCode: r.saleCode,
+        method: r.method,
+        dueDate: r.dueDate,
+        amount: r.amount,
+        status: r.status,
+      }));
+
+    return {
+      id: client.id,
+      name: client.name,
+      whatsapp: client.whatsapp,
+      notes: "",
+      totalOpen: openPayments.filter((p) => p.status !== "CONFIRMADO").reduce((a, b) => a + b.amount, 0),
+      overdueCount: openPayments.filter((p) => p.status === "ATRASADO").length,
+      totalPurchases: mockSales.filter((s) => s.client === client.name).length,
+      totalPaid: mockReceivables
+        .filter((r) => r.client === client.name && r.status === "CONFIRMADO")
+        .reduce((a, b) => a + b.amount, 0),
+      recentSales: mockSales.filter((s) => s.client === client.name).map((s) => ({ id: s.id, code: s.code, date: s.date, total: s.total, status: s.status })),
+      openPayments,
+    };
+  }
+
+  const supabase = getSupabaseServerClient();
+  const clientResult = await supabase.from("clients").select("id, name, whatsapp, notes").eq("id", clientId).maybeSingle();
+  if (clientResult.error || !clientResult.data) return null;
+
+  const salesResult = await supabase
+    .from("sales")
+    .select("id, sale_date, total, status")
+    .eq("client_id", clientId)
+    .order("sale_date", { ascending: false })
+    .limit(20);
+
+  if (salesResult.error) return null;
+
+  const salesRows = salesResult.data as Row[];
+  const saleIds = salesRows.map((s) => asString(s.id)).filter(Boolean);
+
+  let paymentsRows: Row[] = [];
+  if (saleIds.length > 0) {
+    const paymentsResult = await supabase
+      .from("payments")
+      .select("id, sale_id, method, due_date, amount, status")
+      .in("sale_id", saleIds)
+      .order("due_date", { ascending: true });
+
+    if (!paymentsResult.error) paymentsRows = paymentsResult.data as Row[];
+  }
+
+  const clientName = asString(clientResult.data?.name);
+
+  const openPayments: ReceivableItem[] = paymentsRows
+    .filter((item) => asString(item.status) !== "CONFIRMADO")
+    .map((item) => ({
+      id: asString(item.id),
+      saleId: asString(item.sale_id),
+      clientId,
+      client: clientName,
+      saleCode: asString(item.sale_id).slice(0, 8),
+      method: asString(item.method),
+      dueDate: item.due_date == null ? null : toIsoDate(item.due_date),
+      amount: asNumber(item.amount),
+      status: asString(item.status),
+    }));
+
+  return {
+    id: asString(clientResult.data.id),
+    name: clientName,
+    whatsapp: asString(clientResult.data.whatsapp),
+    notes: asString(clientResult.data.notes),
+    totalOpen: openPayments.filter((p) => p.status !== "CONFIRMADO").reduce((a, b) => a + b.amount, 0),
+    overdueCount: openPayments.filter((p) => p.status === "ATRASADO").length,
+    totalPurchases: salesRows.length,
+    totalPaid: paymentsRows
+      .filter((p) => asString(p.status) === "CONFIRMADO")
+      .reduce((acc, p) => acc + asNumber(p.amount), 0),
+    recentSales: salesRows.map((s) => ({
+      id: asString(s.id),
+      code: asString(s.id).slice(0, 8),
+      date: toIsoDate(s.sale_date),
+      total: asNumber(s.total),
+      status: asString(s.status),
+    })),
+    openPayments,
+  };
 }
 
 export async function getClientOptions(): Promise<ClientOption[]> {
@@ -274,49 +440,62 @@ export async function getSaleOptions(): Promise<SaleOption[]> {
   }));
 }
 
-export async function getReceivablesData() {
+export async function getReceivablesData(filters: ReceivablesFilters = {}) {
+  let rows: ReceivableItem[] = [];
+
   if (!hasSupabaseEnv()) {
-    return mockReceivables.map((item) => ({ ...item, saleId: item.saleCode }));
+    rows = mockReceivables.map((item) => ({
+      ...item,
+      saleId: item.saleCode,
+      clientId: item.client,
+    }));
+  } else {
+    const supabase = getSupabaseServerClient();
+    const [paymentsResult, salesResult, clientsResult] = await Promise.all([
+      supabase
+        .from("payments")
+        .select("id, sale_id, method, due_date, amount, status")
+        .order("created_at", { ascending: false })
+        .limit(300),
+      supabase.from("sales").select("id, client_id"),
+      supabase.from("clients").select("id, name"),
+    ]);
+
+    if (paymentsResult.error || salesResult.error || clientsResult.error) {
+      rows = mockReceivables.map((item) => ({
+        ...item,
+        saleId: item.saleCode,
+        clientId: item.client,
+      }));
+    } else {
+      const saleToClient = new Map<string, string>();
+      for (const sale of salesResult.data as Row[]) {
+        saleToClient.set(asString(sale.id), asString(sale.client_id));
+      }
+
+      const clientName = new Map<string, string>();
+      for (const client of clientsResult.data as Row[]) {
+        clientName.set(asString(client.id), asString(client.name));
+      }
+
+      rows = (paymentsResult.data as Row[]).map((item) => {
+        const saleId = asString(item.sale_id);
+        const clientId = saleToClient.get(saleId) ?? "";
+
+        return {
+          id: asString(item.id),
+          saleId,
+          clientId,
+          client: clientName.get(clientId) ?? "-",
+          saleCode: saleId.slice(0, 8),
+          method: asString(item.method),
+          dueDate: item.due_date == null ? null : toIsoDate(item.due_date),
+          amount: asNumber(item.amount),
+          status: asString(item.status),
+        };
+      });
+    }
   }
 
-  const supabase = getSupabaseServerClient();
-  const [paymentsResult, salesResult, clientsResult] = await Promise.all([
-    supabase
-      .from("payments")
-      .select("id, sale_id, method, due_date, amount, status")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase.from("sales").select("id, client_id"),
-    supabase.from("clients").select("id, name"),
-  ]);
-
-  if (paymentsResult.error || salesResult.error || clientsResult.error) {
-    return mockReceivables.map((item) => ({ ...item, saleId: item.saleCode }));
-  }
-
-  const saleToClient = new Map<string, string>();
-  for (const sale of salesResult.data as Row[]) {
-    saleToClient.set(asString(sale.id), asString(sale.client_id));
-  }
-
-  const clientName = new Map<string, string>();
-  for (const client of clientsResult.data as Row[]) {
-    clientName.set(asString(client.id), asString(client.name));
-  }
-
-  return (paymentsResult.data as Row[]).map((item) => {
-    const saleId = asString(item.sale_id);
-    const clientId = saleToClient.get(saleId) ?? "";
-
-    return {
-      id: asString(item.id),
-      saleId,
-      client: clientName.get(clientId) ?? "-",
-      saleCode: saleId.slice(0, 8),
-      method: asString(item.method),
-      dueDate: item.due_date == null ? null : toIsoDate(item.due_date),
-      amount: asNumber(item.amount),
-      status: asString(item.status),
-    };
-  });
+  return rows.filter((item) => filterReceivable(item, filters));
 }

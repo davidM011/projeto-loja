@@ -142,6 +142,60 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
             <span>Revise os campos e tente novamente.</span>
           </div>
         )}
+        {saleFeedback === "campos" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Campos obrigatorios</strong>
+            <span>Informe cliente, data e pelo menos 1 item valido.</span>
+          </div>
+        )}
+        {saleFeedback === "pagamento" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Pagamento invalido</strong>
+            <span>Revise metodo e valor do pagamento.</span>
+          </div>
+        )}
+        {saleFeedback === "vencimento" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Data de vencimento obrigatoria</strong>
+            <span>Para fiado, preencha a data de vencimento.</span>
+          </div>
+        )}
+        {saleFeedback === "cliente" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Cliente invalido</strong>
+            <span>Selecione um cliente ativo e tente novamente.</span>
+          </div>
+        )}
+        {saleFeedback === "itens" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Erro ao salvar itens</strong>
+            <span>Confira produtos e quantidades da venda.</span>
+          </div>
+        )}
+        {saleFeedback === "metodo" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Metodo indisponivel no banco</strong>
+            <span>Rode a migration 0005 para liberar Dinheiro/Transferencia.</span>
+          </div>
+        )}
+        {saleFeedback === "pagamento_db" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Erro ao salvar pagamento</strong>
+            <span>Tente PIX e confirme se as migrations foram aplicadas.</span>
+          </div>
+        )}
+        {saleFeedback === "produtos" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Erro ao consultar produtos</strong>
+            <span>Verifique conexao e permissao no Supabase.</span>
+          </div>
+        )}
+        {saleFeedback === "sessao" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Sessao expirada</strong>
+            <span>Entre novamente para registrar a venda.</span>
+          </div>
+        )}
         {saleDelete === "ok" && (
           <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
             <strong>Compra removida</strong>

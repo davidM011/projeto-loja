@@ -64,17 +64,17 @@ export async function POST(req: Request) {
   const cardBrand = String(form.get("cardBrand") ?? "").trim();
 
   if (!clientId || !saleDate || items.length === 0) {
-    redirectUrl.searchParams.set("sale", "erro");
+    redirectUrl.searchParams.set("sale", "campos");
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
   if (registerPaymentNow) {
     if (!methodIsValid(paymentMethod) || !Number.isFinite(paymentAmount) || paymentAmount <= 0) {
-      redirectUrl.searchParams.set("sale", "erro");
+      redirectUrl.searchParams.set("sale", "pagamento");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
     if (paymentMethod === "MES_SEGUINTE" && !paymentDueDate) {
-      redirectUrl.searchParams.set("sale", "erro");
+      redirectUrl.searchParams.set("sale", "vencimento");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
   }
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
     const uniqueProductIds = Array.from(new Set(items.map((item) => item.productId)));
     const stockResult = await supabase.from("products").select("id, stock").in("id", uniqueProductIds);
     if (stockResult.error) {
-      redirectUrl.searchParams.set("sale", "erro");
+      redirectUrl.searchParams.set("sale", "produtos");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
 
@@ -125,7 +125,12 @@ export async function POST(req: Request) {
       .single();
 
     if (saleResult.error || !saleResult.data?.id) {
-      redirectUrl.searchParams.set("sale", "erro");
+      const message = String(saleResult.error?.message ?? "").toLowerCase();
+      if (message.includes("foreign key") || message.includes("client_id")) {
+        redirectUrl.searchParams.set("sale", "cliente");
+      } else {
+        redirectUrl.searchParams.set("sale", "erro");
+      }
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
 
@@ -141,7 +146,7 @@ export async function POST(req: Request) {
     const saleItemsResult = await supabase.from("sale_items").insert(rows);
     if (saleItemsResult.error) {
       await supabase.from("sales").delete().eq("id", saleId);
-      redirectUrl.searchParams.set("sale", "erro");
+      redirectUrl.searchParams.set("sale", "itens");
       return NextResponse.redirect(redirectUrl, { status: 303 });
     }
 
@@ -159,7 +164,12 @@ export async function POST(req: Request) {
 
       if (paymentInsert.error) {
         await supabase.from("sales").delete().eq("id", saleId);
-        redirectUrl.searchParams.set("sale", "erro");
+        const message = String(paymentInsert.error.message ?? "").toLowerCase();
+        if (message.includes("invalid input value for enum") || message.includes("payment_method")) {
+          redirectUrl.searchParams.set("sale", "metodo");
+        } else {
+          redirectUrl.searchParams.set("sale", "pagamento_db");
+        }
         return NextResponse.redirect(redirectUrl, { status: 303 });
       }
     }
@@ -171,7 +181,8 @@ export async function POST(req: Request) {
       await supabase.from("products").update({ stock: newStock }).eq("id", productId);
     }
   } catch {
-    return NextResponse.redirect(new URL("/login", req.url), { status: 303 });
+    redirectUrl.searchParams.set("sale", "sessao");
+    return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
   redirectUrl.searchParams.set("sale", "ok");

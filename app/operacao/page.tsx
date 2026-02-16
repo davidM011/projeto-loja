@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = {
   sale?: string | string[];
+  saleDelete?: string | string[];
+  clientDelete?: string | string[];
   status?: string | string[];
   method?: string | string[];
   clientId?: string | string[];
@@ -18,6 +20,8 @@ function pick(value: string | string[] | undefined, fallback = "TODOS") {
 
 export default async function OperacaoPage({ searchParams }: { searchParams?: SearchParams }) {
   const saleFeedback = pick(searchParams?.sale, "");
+  const saleDelete = pick(searchParams?.saleDelete, "");
+  const clientDelete = pick(searchParams?.clientDelete, "");
   const status = pick(searchParams?.status, "TODOS");
   const method = pick(searchParams?.method, "TODOS");
   const clientId = pick(searchParams?.clientId, "TODOS");
@@ -40,6 +44,25 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
 
       <article className="card glass">
         <h2>Cadastro de clientes</h2>
+        {clientDelete === "ok" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Cliente removido</strong>
+            <span>Registro excluido com sucesso.</span>
+          </div>
+        )}
+        {clientDelete === "vinculado" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Nao foi possivel remover</strong>
+            <span>Esse cliente possui vendas vinculadas.</span>
+          </div>
+        )}
+        {clientDelete === "erro" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Erro ao remover cliente</strong>
+            <span>Tente novamente em alguns segundos.</span>
+          </div>
+        )}
+
         <form action="/api/clients" method="post" className="form-grid">
           <input type="hidden" name="returnTo" value="/operacao" />
           <label className="field">
@@ -74,6 +97,7 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
                 <th>Contato</th>
                 <th>Compras</th>
                 <th>Divida</th>
+                <th>Acao</th>
               </tr>
             </thead>
             <tbody>
@@ -83,6 +107,14 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
                   <td>{c.whatsapp}</td>
                   <td>{c.orders}</td>
                   <td>R$ {c.debt.toFixed(2)}</td>
+                  <td>
+                    <form action={`/api/clients/${c.id}/delete`} method="post">
+                      <input type="hidden" name="returnTo" value="/operacao" />
+                      <button className="btn btn-secondary btn-small" type="submit">
+                        Remover
+                      </button>
+                    </form>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -110,6 +142,18 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
             <span>Revise os campos e tente novamente.</span>
           </div>
         )}
+        {saleDelete === "ok" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Compra removida</strong>
+            <span>Venda excluida e estoque devolvido.</span>
+          </div>
+        )}
+        {saleDelete === "erro" && (
+          <div className="alert-strip" style={{ marginBottom: "0.9rem" }}>
+            <strong>Erro ao remover compra</strong>
+            <span>Tente novamente em alguns segundos.</span>
+          </div>
+        )}
 
         <SaleCreateForm clients={clientOptions} products={productOptions} returnTo="/operacao" />
 
@@ -123,6 +167,7 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
                 <th>Total</th>
                 <th>Status</th>
                 <th>Responsavel</th>
+                <th>Acao</th>
               </tr>
             </thead>
             <tbody>
@@ -134,6 +179,14 @@ export default async function OperacaoPage({ searchParams }: { searchParams?: Se
                   <td>R$ {sale.total.toFixed(2)}</td>
                   <td>{sale.status}</td>
                   <td>{sale.responsible || "-"}</td>
+                  <td>
+                    <form action={`/api/sales/${sale.id}/delete`} method="post">
+                      <input type="hidden" name="returnTo" value="/operacao" />
+                      <button className="btn btn-secondary btn-small" type="submit">
+                        Remover
+                      </button>
+                    </form>
+                  </td>
                 </tr>
               ))}
             </tbody>

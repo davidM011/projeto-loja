@@ -11,7 +11,10 @@ function getErrorCode(message: string | undefined) {
 }
 
 export async function POST(req: Request, { params }: Params) {
-  const redirectUrl = new URL("/clientes", req.url);
+  const form = await req.formData();
+  const returnTo = String(form.get("returnTo") ?? "").trim();
+  const safeReturn = returnTo.startsWith("/") ? returnTo : "/clientes";
+  const redirectUrl = new URL(safeReturn, req.url);
   const clientId = String(params.id ?? "").trim();
 
   if (!clientId) {
